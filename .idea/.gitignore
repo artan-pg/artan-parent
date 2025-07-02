@@ -1,0 +1,11 @@
+.name
+
+/*.xml
+
+/httpRequests/
+/dataSources/
+/shelf/
+/modules/
+/jpb/
+
+!/encodings.xml
