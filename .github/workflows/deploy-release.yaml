@@ -1,0 +1,193 @@
+name: Deploy Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-release
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build and verify (JDK ${{ matrix.java }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        java: [ '21', '25', '27' ]
+    steps:
+      - name: Checkout (tag)
+        uses: actions/checkout@v7
+
+      - name: Set up JDK ${{ matrix.java }}
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+
+      - name: Cache Maven local repository
+        uses: actions/cache@v6
+        with:
+          path: ~/.m2/repository
+          key: maven-${{ runner.os }}-jdk${{ matrix.java }}-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            maven-${{ runner.os }}-jdk${{ matrix.java }}-
+            maven-${{ runner.os }}-
+
+      - name: Build
+        run: ./mvnw -B -ntp install
+
+  deploy:
+    name: Deploy release to Nexus and Maven Central (JDK 21)
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout (tag)
+        uses: actions/checkout@v7
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Cache Maven local repository
+        uses: actions/cache@v6
+        with:
+          path: ~/.m2/repository
+          key: maven-${{ runner.os }}-jdk21-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            maven-${{ runner.os }}-jdk21-
+            maven-${{ runner.os }}-
+
+      - name: Read project version
+        id: version
+        run: |
+          VERSION=$(./mvnw -B -ntp -q -DforceStdout help:evaluate -Dexpression=project.version)
+          echo "pom=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "pom.xml version: $VERSION"
+
+      - name: Verify tag matches version
+        env:
+          EXPECTED: ${{ steps.version.outputs.pom }}
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          if [ "$EXPECTED" != "$TAG" ]; then
+            echo "::error::Tag is v$TAG but pom.xml version is $EXPECTED. Refusing to deploy."
+            exit 1
+          fi
+          if ! [[ "$EXPECTED" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Version '$EXPECTED' does not follow Semantic Versioning (MAJOR.MINOR.PATCH); SNAPSHOT versions cannot be released."
+            exit 1
+          fi
+          echo "OK: tag v$TAG matches version $EXPECTED"
+
+      - name: Normalize tag message to "Release <version>"
+        run: |
+          # maven-release-plugin hardcodes "[maven-release-plugin] copy for tag <tag>"
+          # as the annotated-tag message and exposes no parameter for it. Re-tag the
+          # SAME commit with "Release <project.version>" (tag name == pom version is
+          # already guaranteed by the step above). Pushing with GITHUB_TOKEN does not
+          # re-trigger workflows, so this stays a single run and cannot loop; the
+          # early-exit keeps the step idempotent for manual re-runs.
+          TAG_NAME="${GITHUB_REF_NAME}"
+          EXPECTED="Release ${TAG_NAME#v}"
+          git fetch --force --no-tags origin "refs/tags/$TAG_NAME:refs/tags/$TAG_NAME"
+          CURRENT=$(git tag -l --format='%(contents:subject)' "$TAG_NAME")
+          if [ "$CURRENT" = "$EXPECTED" ]; then
+            echo "Tag message already normalized ('$EXPECTED'); skipping re-tag."
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          TAG_COMMIT=$(git rev-parse "${TAG_NAME}^{commit}")
+          git tag -d "$TAG_NAME"
+          git tag -a "$TAG_NAME" -m "$EXPECTED" "$TAG_COMMIT"
+          git push --force origin "refs/tags/$TAG_NAME"
+
+      - name: Import GPG signing key
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+        run: |
+          if [ -z "$GPG_PRIVATE_KEY" ]; then
+            echo "::error::Secret GPG_PRIVATE_KEY is not set. Nexus and Maven Central uploads are GPG-signed."
+            exit 1
+          fi
+          mkdir -p ~/.gnupg
+          chmod 700 ~/.gnupg
+          echo "$GPG_PRIVATE_KEY" | gpg --batch --import
+          gpg --list-secret-keys --keyid-format=long
+
+      - name: Deploy signed artifacts to Nexus releases
+        env:
+          NEXUS_MAVEN_USERNAME: ${{ secrets.NEXUS_MAVEN_USERNAME }}
+          NEXUS_MAVEN_PASSWORD: ${{ secrets.NEXUS_MAVEN_PASSWORD }}
+          MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+        # The sign profile attaches maven-gpg-plugin (sign goal, verify phase): the artifact
+        # and its .asc GPG signature are deployed together to maven-releases via the standard
+        # distributionManagement upload. Use -Dgpg.skip=true to publish unsigned.
+        run: ./mvnw -B -ntp deploy -P sign
+
+      - name: Publish to Maven Central
+        # The release-repo profile activates central-publishing-maven-plugin, which (with
+        # <extensions>true</extensions>) replaces the maven-deploy-plugin bindings at runtime:
+        # this execution uploads the GPG-signed bundle to the Central Portal INSTEAD of
+        # distributionManagement. With publishingType default (USER_MANAGED) the deployment
+        # stays "Validated" until it is published in the Portal UI
+        # (https://central.sonatype.com/publishing/deployments) unless autoPublish is enabled.
+        # The requireReleaseVersion Enforcer rule of the profile re-guards the version here.
+        env:
+          MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+          MAVEN_CENTRAL_PORTAL_USERNAME: ${{ secrets.MAVEN_CENTRAL_PORTAL_USERNAME }}
+          MAVEN_CENTRAL_PORTAL_TOKEN: ${{ secrets.MAVEN_CENTRAL_PORTAL_TOKEN }}
+        run: ./mvnw -B -ntp deploy -P sign,release-repo
+
+  github-release:
+    name: Create GitHub Release
+    needs: deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout (tag)
+        uses: actions/checkout@v7
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            echo "GitHub Release $GITHUB_REF_NAME already exists; skipping create."
+            exit 0
+          fi
+          cat > /tmp/release-notes.md << EOF
+          Release **${VERSION}** of \`artan-parent\`.
+
+          Published to the group Maven repository (\`maven-releases\`) and to Maven Central.
+          If the Central Portal still shows the deployment as *Validated*, finalize it at
+          https://central.sonatype.com/publishing/deployments.
+          Use this version as the parent in child projects:
+
+          \`\`\`xml
+          <parent>
+            <groupId>ir.artanpg</groupId>
+            <artifactId>artan-parent</artifactId>
+            <version>${VERSION}</version>
+          </parent>
+          \`\`\`
+          EOF
+          gh release create "$GITHUB_REF_NAME" \
+            --title "Release ${VERSION}" \
+            --notes-file /tmp/release-notes.md \
+            --verify-tag

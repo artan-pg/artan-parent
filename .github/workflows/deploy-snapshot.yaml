@@ -1,0 +1,102 @@
+name: Deploy Snapshot
+
+on:
+  push:
+    branches: [ main, '[0-9]+.[0-9]+.x' ]
+    paths-ignore:
+      - '**.md'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-snapshot
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build and verify (JDK ${{ matrix.java }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        java: [ '21', '25', '27' ]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up JDK ${{ matrix.java }}
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: ${{ matrix.java }}
+
+      - name: Cache Maven local repository
+        uses: actions/cache@v6
+        with:
+          path: ~/.m2/repository
+          key: maven-${{ runner.os }}-jdk${{ matrix.java }}-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            maven-${{ runner.os }}-jdk${{ matrix.java }}-
+            maven-${{ runner.os }}-
+
+      - name: Build
+        run: ./mvnw -B -ntp install
+
+  deploy:
+    name: Deploy to Nexus snapshots (JDK 21)
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Cache Maven local repository
+        uses: actions/cache@v6
+        with:
+          path: ~/.m2/repository
+          key: maven-${{ runner.os }}-jdk21-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            maven-${{ runner.os }}-jdk21-
+            maven-${{ runner.os }}-
+
+      - name: Verify version is a SNAPSHOT
+        run: |
+          VERSION=$(./mvnw -B -ntp -q -DforceStdout help:evaluate -Dexpression=project.version)
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+-SNAPSHOT$ ]]; then
+            echo "::error::Version '$VERSION' does not follow Semantic Versioning (MAJOR.MINOR.PATCH-SNAPSHOT). branch ${GITHUB_REF_NAME} must carry a -SNAPSHOT version; releases go through the v* tag flow."
+            exit 1
+          fi
+          echo "OK: deploying $VERSION"
+
+      - name: Import GPG signing key
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+        run: |
+          if [ -z "$GPG_PRIVATE_KEY" ]; then
+            echo "::error::Secret GPG_PRIVATE_KEY is not set. Nexus and Maven Central uploads are GPG-signed."
+            exit 1
+          fi
+          mkdir -p ~/.gnupg
+          chmod 700 ~/.gnupg
+          echo "$GPG_PRIVATE_KEY" | gpg --batch --import
+          gpg --list-secret-keys --keyid-format=long
+
+      - name: Deploy signed artifacts to Nexus snapshot
+        env:
+          NEXUS_MAVEN_USERNAME: ${{ secrets.NEXUS_MAVEN_USERNAME }}
+          NEXUS_MAVEN_PASSWORD: ${{ secrets.NEXUS_MAVEN_PASSWORD }}
+          MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+        # The sign profile attaches maven-gpg-plugin (sign goal, verify phase): the artifact
+        # and its .asc GPG signature are deployed together to maven-snapshots via the standard
+        # distributionManagement upload. Use -Dgpg.skip=true to publish unsigned.
+        run: ./mvnw -B -ntp deploy -P sign
