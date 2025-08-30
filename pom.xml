@@ -459,7 +459,7 @@
                             <executions>
                                 <execution>
                                     <id>report</id>
-                                    <phase>verify</phase>
+                                    <phase>package</phase>
                                     <goals>
                                         <goal>report-only</goal>
                                         <goal>failsafe-report-only</goal>
