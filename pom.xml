@@ -462,6 +462,7 @@
                                     <phase>verify</phase>
                                     <goals>
                                         <goal>report-only</goal>
+                                        <goal>failsafe-report-only</goal>
                                     </goals>
                                 </execution>
                             </executions>
