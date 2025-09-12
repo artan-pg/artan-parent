@@ -53,7 +53,13 @@
         <jacoco.report.title>${project.name}</jacoco.report.title>
         <jacoco.report.footer>${project.name}</jacoco.report.footer>
         <jacoco.report.formats>HTML</jacoco.report.formats>
-        <jacoco.rule.minimum>0.80</jacoco.rule.minimum>
+
+        <jacoco.rule.bundle.complexity.ratio>0.95</jacoco.rule.bundle.complexity.ratio>
+        <jacoco.rule.bundle.branch.ratio>1</jacoco.rule.bundle.branch.ratio>
+        <jacoco.rule.bundle.line.ratio>0.80</jacoco.rule.bundle.line.ratio>
+
+        <jacoco.rule.class.line.ratio>0.80</jacoco.rule.class.line.ratio>
+        <jacoco.rule.class.method.ratio>0.80</jacoco.rule.class.method.ratio>
 
         <!-- Library Dependency version properties -->
         <checkstyle.version>10.26.1</checkstyle.version>
@@ -431,16 +437,16 @@
                                     <exclude>**/*_.class</exclude>
                                     <!-- excludes all inner classes -->
                                     <exclude>**/*$*.class</exclude>
-                                    <!-- excludes all classes whose names end with Dto -->
                                     <exclude>**/*Dto.class</exclude>
-                                    <!-- excludes all classes whose names end with Config or Configuration -->
+                                    <exclude>**/*Entity.class</exclude>
                                     <exclude>**/*Config.class</exclude>
                                     <exclude>**/*Configuration.class</exclude>
                                 </excludes>
                             </configuration>
                             <executions>
+                                <!-- Unit Test Coverage -->
                                 <execution>
-                                    <id>jacoco-initialize</id>
+                                    <id>jacoco-prepare-initialize</id>
                                     <goals>
                                         <goal>prepare-agent</goal>
                                     </goals>
@@ -449,11 +455,24 @@
                                         <append>true</append>
                                     </configuration>
                                 </execution>
+                                <!-- Integration Test Coverage -->
+                                <execution>
+                                    <id>jacoco-prepare-integration-initialize</id>
+                                    <goals>
+                                        <goal>prepare-agent-integration</goal>
+                                    </goals>
+                                    <configuration>
+                                        <destFile>${jacoco.destFile}</destFile>
+                                        <append>true</append>
+                                    </configuration>
+                                </execution>
+                                <!-- Generate Reports -->
                                 <execution>
                                     <id>jacoco-report</id>
                                     <phase>verify</phase>
                                     <goals>
                                         <goal>report</goal>
+                                        <goal>report-integration</goal>
                                     </goals>
                                     <configuration>
                                         <dataFile>${jacoco.destFile}</dataFile>
@@ -465,6 +484,7 @@
                                         </formats>
                                     </configuration>
                                 </execution>
+                                <!-- Check Coverage Rules -->
                                 <execution>
                                     <id>default-check</id>
                                     <phase>verify</phase>
@@ -474,13 +494,46 @@
                                     <configuration>
                                         <dataFile>${jacoco.destFile}</dataFile>
                                         <rules>
+                                            <!-- The main rule for the entire project -->
                                             <rule>
                                                 <element>BUNDLE</element>
                                                 <limits>
                                                     <limit>
                                                         <counter>COMPLEXITY</counter>
                                                         <value>COVEREDRATIO</value>
-                                                        <minimum>${jacoco.rule.minimum}</minimum>
+                                                        <minimum>${jacoco.rule.bundle.complexity.ratio}</minimum>
+                                                    </limit>
+                                                    <limit>
+                                                        <counter>BRANCH</counter>
+                                                        <value>COVEREDRATIO</value>
+                                                        <minimum>${jacoco.rule.bundle.branch.ratio}</minimum>
+                                                    </limit>
+                                                    <limit>
+                                                        <counter>LINE</counter>
+                                                        <value>COVEREDRATIO</value>
+                                                        <minimum>${jacoco.rule.bundle.line.ratio}</minimum>
+                                                    </limit>
+                                                </limits>
+                                                <excludes>
+                                                    <exclude>**/utils/**</exclude>
+                                                </excludes>
+                                            </rule>
+                                            <!-- Separate rule for Utility classes -->
+                                            <rule>
+                                                <element>CLASS</element>
+                                                <includes>
+                                                    <include>**/utils/**</include>
+                                                </includes>
+                                                <limits>
+                                                    <limit>
+                                                        <counter>LINE</counter>
+                                                        <value>COVEREDRATIO</value>
+                                                        <minimum>${jacoco.rule.class.line.ratio}</minimum>
+                                                    </limit>
+                                                    <limit>
+                                                        <counter>METHOD</counter>
+                                                        <value>COVEREDRATIO</value>
+                                                        <minimum>${jacoco.rule.class.method.ratio}</minimum>
                                                     </limit>
                                                 </limits>
                                             </rule>
