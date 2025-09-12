@@ -95,6 +95,8 @@
         <maven-release-plugin.version>3.1.1</maven-release-plugin.version>
         <maven-deploy-plugin.version>3.1.4</maven-deploy-plugin.version>
 
+        <jacoco-maven-plugin.version>0.8.13</jacoco-maven-plugin.version>
+
         <maven-surefire-report-plugin.version>3.5.2</maven-surefire-report-plugin.version>
         <maven-project-info-reports-plugin.version>3.9.0</maven-project-info-reports-plugin.version>
         <maven-changes-plugin.version>3.0.0-M2</maven-changes-plugin.version>
@@ -284,6 +286,12 @@
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-deploy-plugin</artifactId>
                     <version>${maven-deploy-plugin.version}</version>
+                </plugin>
+
+                <plugin>
+                    <groupId>org.jacoco</groupId>
+                    <artifactId>jacoco-maven-plugin</artifactId>
+                    <version>${jacoco-maven-plugin.version}</version>
                 </plugin>
 
                 <plugin>
