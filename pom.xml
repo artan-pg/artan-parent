@@ -64,6 +64,9 @@
         <jacoco.rule.class.method.ratio>0.80</jacoco.rule.class.method.ratio>
 
         <!-- Library Dependency version properties -->
+        <artan-commons-utils.version>0.0.0-SNAPSHOT</artan-commons-utils.version>
+        <artan-commons-core.version>0.0.0-SNAPSHOT</artan-commons-core.version>
+
         <checkstyle.version>10.26.1</checkstyle.version>
         <nohttp.version>0.0.11</nohttp.version>
         <junit5.version>5.13.2</junit5.version>
@@ -105,6 +108,17 @@
 
     <dependencyManagement>
         <dependencies>
+            <dependency>
+                <groupId>ir.artanpg.commons</groupId>
+                <artifactId>commons-utils</artifactId>
+                <version>${artan-commons-utils.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>ir.artanpg.commons</groupId>
+                <artifactId>commons-core</artifactId>
+                <version>${artan-commons-core.version}</version>
+            </dependency>
+
             <dependency>
                 <groupId>org.junit</groupId>
                 <artifactId>junit-bom</artifactId>
