@@ -39,6 +39,8 @@
         <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
         <project.resources.sourceEncoding>UTF-8</project.resources.sourceEncoding>
 
+        <argLine>-Xmx2048m</argLine>
+        <threadCount>10</threadCount>
         <maven.test.skip>true</maven.test.skip>
 
         <!-- Checkstyle maven plugin configuration properties -->
@@ -329,7 +331,6 @@
     <profiles>
         <profile>
             <id>generate-source</id>
-
             <build>
                 <pluginManagement>
                     <plugins>
@@ -348,7 +349,6 @@
                         </plugin>
                     </plugins>
                 </pluginManagement>
-
                 <plugins>
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
@@ -357,10 +357,8 @@
                 </plugins>
             </build>
         </profile>
-
         <profile>
             <id>generate-javadoc</id>
-
             <build>
                 <pluginManagement>
                     <plugins>
@@ -383,7 +381,6 @@
                         </plugin>
                     </plugins>
                 </pluginManagement>
-
                 <plugins>
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
@@ -392,14 +389,11 @@
                 </plugins>
             </build>
         </profile>
-
         <profile>
             <id>execute-tests</id>
-
             <properties>
                 <maven.test.skip>false</maven.test.skip>
             </properties>
-
             <build>
                 <pluginManagement>
                     <plugins>
@@ -422,9 +416,6 @@
                                     <exclude>**/Abstract*.java</exclude>
                                 </excludes>
                                 <parallel>methods</parallel>
-                                <threadCount>4</threadCount>
-                                <argLine>-Xmx2048m</argLine>
-                                <testFailureIgnore>false</testFailureIgnore>
                             </configuration>
                         </plugin>
                         <plugin>
@@ -448,9 +439,6 @@
                                     <exclude>**/Abstract*.java</exclude>
                                 </excludes>
                                 <parallel>methods</parallel>
-                                <threadCount>4</threadCount>
-                                <argLine>-Xmx2048m</argLine>
-                                <testFailureIgnore>false</testFailureIgnore>
                             </configuration>
                         </plugin>
                         <plugin>
@@ -472,7 +460,6 @@
                         </plugin>
                     </plugins>
                 </pluginManagement>
-
                 <plugins>
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
