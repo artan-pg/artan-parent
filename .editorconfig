@@ -1,0 +1,22 @@
+root = true
+
+[*]
+tab_width = 4
+charset = utf-8
+indent_size = 4
+end_of_line = lf
+indent_style = space
+max_line_length = 120
+insert_final_newline = true
+trim_trailing_whitespace = true
+ij_smart_tabs = false
+ij_visual_guides = none
+ij_wrap_on_typing = false
+ij_continuation_indent_size = 8
+ij_formatter_tags_enabled = true
+ij_formatter_on_tag = @formatter:on
+ij_formatter_off_tag = @formatter:off
+
+[*.md]
+indent_size = 2
+trim_trailing_whitespace = false
