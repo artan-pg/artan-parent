@@ -406,6 +406,7 @@
                                     </goals>
                                 </execution>
                             </executions>
+                            <inherited>true</inherited>
                         </plugin>
                     </plugins>
                 </pluginManagement>
