@@ -60,6 +60,9 @@
         <jacoco.rule.class.method.ratio>0.80</jacoco.rule.class.method.ratio>
 
         <!-- Library Dependency version properties -->
+        <commons-core.version>0.0.0-SNAPSHOT</commons-core.version>
+        <commons-utils.version>0.0.0-SNAPSHOT</commons-utils.version>
+
         <logback.version>1.5.23</logback.version>
         <micrometer.version>1.16.0</micrometer.version>
         <micrometer-tracing.version>1.6.0</micrometer-tracing.version>
@@ -105,6 +108,17 @@
 
     <dependencyManagement>
         <dependencies>
+            <dependency>
+                <groupId>ir.artanpg.commons</groupId>
+                <artifactId>commons-core</artifactId>
+                <version>${commons-core.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>ir.artanpg.commons</groupId>
+                <artifactId>commons-utils</artifactId>
+                <version>${commons-utils.version}</version>
+            </dependency>
+
             <dependency>
                 <groupId>ch.qos.logback</groupId>
                 <artifactId>logback-classic</artifactId>
