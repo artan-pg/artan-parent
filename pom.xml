@@ -48,6 +48,11 @@
     <maven.test.skip>true</maven.test.skip>
 
     <!-- Library Dependency version properties -->
+    <slf4j.version>2.0.20</slf4j.version>
+    <logback.version>1.6.5</logback.version>
+
+    <lombok.version>1.18.48</lombok.version>
+
     <checkstyle.version>14.3.0</checkstyle.version>
     <nohttp.version>0.0.11</nohttp.version>
     <spring-javaformat-checkstyle.version>0.0.48</spring-javaformat-checkstyle.version>
@@ -111,6 +116,28 @@
 
   <dependencyManagement>
     <dependencies>
+      <dependency>
+        <groupId>org.slf4j</groupId>
+        <artifactId>slf4j-api</artifactId>
+        <version>${slf4j.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>ch.qos.logback</groupId>
+        <artifactId>logback-core</artifactId>
+        <version>${logback.version}</version>
+      </dependency>
+      <dependency>
+        <groupId>ch.qos.logback</groupId>
+        <artifactId>logback-classic</artifactId>
+        <version>${logback.version}</version>
+      </dependency>
+
+      <dependency>
+        <groupId>org.projectlombok</groupId>
+        <artifactId>lombok</artifactId>
+        <version>${lombok.version}</version>
+      </dependency>
+
       <dependency>
         <groupId>com.puppycrawl.tools</groupId>
         <artifactId>checkstyle</artifactId>
