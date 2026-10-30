@@ -882,4 +882,15 @@
       </build>
     </profile>
   </profiles>
+
+  <distributionManagement>
+    <repository>
+      <id>maven-releases</id>
+      <url>https://repository.artanpg.ir/repository/maven-releases/</url>
+    </repository>
+    <snapshotRepository>
+      <id>maven-snapshots</id>
+      <url>https://repository.artanpg.ir/repository/maven-snapshots/</url>
+    </snapshotRepository>
+  </distributionManagement>
 </project>
