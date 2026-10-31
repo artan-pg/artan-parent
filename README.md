@@ -13,7 +13,7 @@ This project is the central place for managing resources and libraries: dependen
 - **Plugin configuration**: `pluginManagement` provides consistent behavior for the compiler (`<release>21</release>`), Surefire/Failsafe, JaCoCo, Checkstyle and the Enforcer.
 - **Shared properties**: `java.version=21`, `UTF-8` encoding, `threadCount=10`, and other build settings.
 - **Build gates**: the Enforcer requires at least **Maven 3.9.0** and **JDK 21** on every build; incompatible environments fail immediately.
-- **Project Maven configuration**: `.mvn/maven.config` automatically applies the project `settings.xml` (`.mvn/settings.xml`); the default local repository (`~/.m2/repository`) is used, and `ir.artanpg` artifacts are resolved from the group's Nexus repositories (https://repository.artanpg.ir). The `-U` flag is always on.
+- **Project Maven configuration**: `.mvn/maven.config` automatically applies the project `settings.xml` (`.mvn/settings.xml`); the default local repository (`~/.m2/repository`) is used, and `ir.artanpg` artifacts are resolved from the group's Nexus repositories (https://repository.artanpg.ir).
 
 > **Important:** tests are **disabled** by default (`maven.test.skip=true`). They are enabled only through the `execute-tests` profile (see below).
 
@@ -60,9 +60,9 @@ Unified code-style checking with `maven-checkstyle-plugin` (together with `sprin
 
 ```xml
 <properties>
-    <checkstyle.config.location>checkstyle/checkstyle.xml</checkstyle.config.location>
-    <checkstyle.properties.location>checkstyle/checkstyle.properties</checkstyle.properties.location>
-    <checkstyle.suppressions.location>checkstyle/checkstyle-suppressions.xml</checkstyle.suppressions.location>
+  <checkstyle.config.location>checkstyle/checkstyle.xml</checkstyle.config.location>
+  <checkstyle.properties.location>checkstyle/checkstyle.properties</checkstyle.properties.location>
+  <checkstyle.suppressions.location>checkstyle/checkstyle-suppressions.xml</checkstyle.suppressions.location>
 </properties>
 ```
 
@@ -119,6 +119,11 @@ Both profiles share the same `maven-release-plugin` settings:
 git push origin main v2.0.0
 ```
 
+> **Two rules for the real run:**
+>
+> 1. Run it on a **clean working tree** with no leftover `release.properties` from an aborted rehearsal — `release:prepare` creates commits and aborts on uncommitted changes.
+> 2. **Never follow up with `release:perform`.** Publishing is CI's job: the Deploy Release workflow deploys from the pushed tag. A local `release:perform` would upload the same release a second time, and the Nexus `maven-releases` repository rejects redeployment, so the build fails.
+
 ---
 
 ## Publishing
@@ -133,7 +138,7 @@ Publishing goes through the group's Maven repositories at https://repository.art
 
 ### SNAPSHOT flow (daily development)
 
-The version on the `main` branch always looks like `X.Y.Z-SNAPSHOT`. Every push to `main` runs the "Deploy Snapshot" workflow, which publishes the artifact to `maven-snapshots`. A guard checks the version first; anything without `-SNAPSHOT` is rejected.
+The version on the `main` branch always looks like `X.Y.Z-SNAPSHOT`. Every push to `main` (docs-only changes are skipped) runs the "Deploy Snapshot" workflow, which publishes the artifact to `maven-snapshots`. A guard checks the version first; anything without `-SNAPSHOT` is rejected.
 
 ### Release flow (official releases)
 
@@ -155,7 +160,16 @@ The release is prepared locally with the `major`/`minor` profiles (see *Profiles
 
 3. The "Deploy Release" workflow proves the build on all three JDKs (21/25/27), verifies the tag against the pom version, and publishes the artifact from JDK 21 to `maven-releases`.
 
-For a version that does not fit the major/minor scheme (e.g. a hotfix cut from an older branch), use the manual alternative: remove `-SNAPSHOT`, commit, tag `vX.Y.Z`, push — the workflow guards apply unchanged.
+For a version that does not fit the major/minor scheme (e.g. the initial `1.0.0` release or a hotfix cut from an older branch), pass the versions explicitly instead of activating a profile. The plugin then also moves `main` to the next development version in a second commit — `main` must always carry a `-SNAPSHOT` version, otherwise the Deploy Snapshot guard rejects the next push:
+
+```bash
+# example: cut 1.0.0, continue development as 1.1.0-SNAPSHOT
+./mvnw -B release:prepare -DpushChanges=false -DreleaseVersion=1.0.0 -DdevelopmentVersion=1.1.0-SNAPSHOT -Dtag=v1.0.0
+
+git push origin main v1.0.0
+```
+
+Here `-Dtag=vX.Y.Z` is mandatory, because the `v@{project.version}` tag format is configured inside the profiles; without a profile the default tag name would be `artan-parent-X.Y.Z`, which the `v*` trigger never fires on. The Deploy Release guard then applies unchanged. As always, do not run `release:perform` — CI publishes from the tag.
 
 ### Manual publishing (without CI)
 
@@ -198,11 +212,11 @@ From this point on, dependency version management, plugin configuration, test an
 
 Three workflows are defined in `.github/workflows/`:
 
-| Workflow                                                      | Trigger            | Job                                                          |
-|---------------------------------------------------------------|--------------------|--------------------------------------------------------------|
-| [ci.yml](.github/workflows/ci.yaml)                           | push/PR on `main`  | Build and verify on the JDK 21 / 25 / 27 matrix              |
-| [deploy-snapshot.yml](.github/workflows/deploy-snapshot.yaml) | push to `main`     | Matrix build, then publish the SNAPSHOT to Nexus from JDK 21 |
-| [deploy-release.yml](.github/workflows/deploy-release.yaml)   | push of a `v*` tag | Matrix build, tag/version guard, then publish the Release    |
+| Workflow                                                       | Trigger                                               | Job                                                          |
+|----------------------------------------------------------------|-------------------------------------------------------|--------------------------------------------------------------|
+| [ci.yaml](.github/workflows/ci.yaml)                           | push/PR on `main` (docs-only changes skipped), manual | Build and verify on the JDK 21 / 25 / 27 matrix              |
+| [deploy-snapshot.yaml](.github/workflows/deploy-snapshot.yaml) | push to `main` (docs-only changes skipped), manual    | Matrix build, then publish the SNAPSHOT to Nexus from JDK 21 |
+| [deploy-release.yaml](.github/workflows/deploy-release.yaml)   | push of a `v*` tag                                    | Matrix build, tag/version guard, then publish the Release    |
 
 Temurin JDK builds are used; the production line always goes through JDK 21 (the stable LTS).
 
@@ -210,4 +224,4 @@ Temurin JDK builds are used; the production line always goes through JDK 21 (the
 
 ## License
 
-artan-parent is Open Source software released under the https://www.apache.org/licenses/LICENSE-2.0.html[Apache 2.0 license.
+artan-parent is Open Source software released under the [Apache 2.0 license](https://www.apache.org/licenses/LICENSE-2.0.html).
