@@ -37,6 +37,7 @@
     <url>https://github.com/artan-pg/artan-parent</url>
     <connection>scm:git:https://github.com/artan-pg/artan-parent.git</connection>
     <developerConnection>scm:git:ssh://git@github.com/artan-pg/artan-parent.git</developerConnection>
+    <tag>HEAD</tag>
   </scm>
 
   <properties>
@@ -496,6 +497,22 @@
           </execution>
         </executions>
       </plugin>
+      <plugin>
+        <groupId>org.codehaus.mojo</groupId>
+        <artifactId>build-helper-maven-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>parse-versions-for-release</id>
+            <phase>initialize</phase>
+            <goals>
+              <goal>parse-version</goal>
+            </goals>
+            <configuration>
+              <propertyPrefix>parsedVersion</propertyPrefix>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
     </plugins>
   </build>
 
@@ -878,6 +895,58 @@
                 </configuration>
               </execution>
             </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+    <profile>
+      <id>major</id>
+      <activation>
+        <property>
+          <name>major</name>
+        </property>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>build-helper-maven-plugin</artifactId>
+          </plugin>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-release-plugin</artifactId>
+            <configuration>
+              <autoVersionSubmodules>true</autoVersionSubmodules>
+              <tagNameFormat>v@{project.version}</tagNameFormat>
+              <useReleaseProfile>false</useReleaseProfile>
+              <releaseVersion>${parsedVersion.nextMajorVersion}.0.0</releaseVersion>
+            </configuration>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+    <profile>
+      <id>minor</id>
+      <activation>
+        <property>
+          <name>minor</name>
+        </property>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>build-helper-maven-plugin</artifactId>
+          </plugin>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-release-plugin</artifactId>
+            <configuration>
+              <autoVersionSubmodules>true</autoVersionSubmodules>
+              <tagNameFormat>v@{project.version}</tagNameFormat>
+              <useReleaseProfile>false</useReleaseProfile>
+              <releaseVersion>${parsedVersion.majorVersion}.${parsedVersion.nextMinorVersion}.0</releaseVersion>
+            </configuration>
           </plugin>
         </plugins>
       </build>

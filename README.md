@@ -1,6 +1,6 @@
 # artan-parent
 
-![CI](https://github.com/artan-pg/artan-parent/actions/workflows/ci.yml/badge.svg)
+![CI](https://github.com/artan-pg/artan-parent/actions/workflows/ci.yaml/badge.svg)
 
 The shared parent POM for all projects of the Artan Programming Group.
 This project is the central place for managing resources and libraries: dependency versions, build plugin configuration, test and coverage rules, and code style are defined once here and inherited by every child project.
@@ -33,13 +33,15 @@ Since the project packaging is `pom`, `install` simply installs the parent POM i
 
 ## Profiles
 
-Three optional profiles are defined in this parent and inherited by every child project:
+Five optional profiles are defined in this parent and inherited by every child project:
 
-| Profile         | Purpose                                   | Example command                   |
-|-----------------|-------------------------------------------|-----------------------------------|
-| `documentation` | Build the sources jar and the javadoc jar | `./mvnw -P documentation package` |
-| `format`        | Check code style with Checkstyle          | `./mvnw -P format validate`       |
-| `execute-tests` | Run tests and compute JaCoCo coverage     | `./mvnw -P execute-tests verify`  |
+| Profile         | Purpose                                                               | Example command                             |
+|-----------------|-----------------------------------------------------------------------|---------------------------------------------|
+| `documentation` | Build the sources jar and the javadoc jar                             | `./mvnw -P documentation package`           |
+| `format`        | Check code style with Checkstyle                                      | `./mvnw -P format validate`                 |
+| `execute-tests` | Run tests and compute JaCoCo coverage                                 | `./mvnw -P execute-tests verify`            |
+| `major`         | Cut the next **major** release with an automatically computed version | `./mvnw -Dmajor initialize release:prepare` |
+| `minor`         | Cut the next **minor** release with an automatically computed version | `./mvnw -Dminor initialize release:prepare` |
 
 ### 1) The `documentation` profile
 
@@ -87,6 +89,36 @@ Turns on the whole test and coverage cycle (`maven.test.skip=false`):
 
 All ratios are tunable through the `jacoco.rule.*` properties. Generated and infrastructure classes (`config`, `dto`, `command`, `entity`, `*Application`, inner classes and `module-info`) are excluded from coverage computation.
 
+### 4) The `major` and `minor` profiles
+
+Release automation — they remove the manual pom editing from the release process.
+`build-helper-maven-plugin:parse-version` is bound to the `initialize` phase in this parent's `<plugins>`, so every build (and every child project) exposes the current version as parsed properties; each profile feeds one of those properties into `maven-release-plugin` as the release version:
+
+| Starting version | `-Dmajor` produces | `-Dminor` produces |
+|------------------|--------------------|--------------------|
+| `1.2.3-SNAPSHOT` | `2.0.0`            | `1.3.0`            |
+
+Both profiles share the same `maven-release-plugin` settings:
+
+- `autoVersionSubmodules=true` — the version rewrite covers every module of a reactor;
+- `useReleaseProfile=false` — the release plugin's built-in sources/javadoc profile stays off; producing those jars is the `documentation` profile's job;
+- `tagNameFormat=v@{project.version}` — the created tag looks like `v2.0.0`, which matches the `deploy-release` workflow trigger (`v*`) and its tag/version guard.
+
+`release:prepare` rewrites the poms to the release version and commits them, creates the tag, then moves the branch to the next development version (a patch increment — after `2.0.0` development continues as `2.0.1-SNAPSHOT`) and commits again. It does **not** deploy anything; publishing stays with CI (see the Release flow below).
+
+> **Invocation note:** always run `initialize` before `release:prepare` in the same command. `release:prepare` called as a standalone goal runs no lifecycle phase, so the `${parsedVersion.*}` properties are never created and the build fails with `Unable to parse the version string "${parsedVersion...}"`.
+
+```bash
+# rehearsal — nothing is committed or tagged
+./mvnw -B -Dmajor initialize release:prepare -DpushChanges=false -DdryRun=true
+
+# real run — creates two commits and the tag locally
+./mvnw -B -Dmajor initialize release:prepare -DpushChanges=false
+
+# then push the branch and the tag; CI builds and publishes
+git push origin main v2.0.0
+```
+
 ---
 
 ## Publishing
@@ -105,9 +137,25 @@ The version on the `main` branch always looks like `X.Y.Z-SNAPSHOT`. Every push 
 
 ### Release flow (official releases)
 
-1. Remove `-SNAPSHOT` from the version in the pom and commit (e.g. `1.0.0`);
-2. Tag `v1.0.0` — it must exactly match the pom version, otherwise the workflow rejects the tag;
-3. Push the tag. The "Deploy Release" workflow first proves the build on all three JDKs (21/25/27) and then publishes the artifact from JDK 21 to `maven-releases`.
+The release is prepared locally with the `major`/`minor` profiles (see *Profiles* above) and published by CI:
+
+1. Run the preparation with the profile matching the change scope (add `-DdryRun=true` to rehearse first):
+
+    ```bash
+    ./mvnw -B -Dminor initialize release:prepare -DpushChanges=false
+    ```
+
+   This rewrites the pom to the release version (e.g. `1.1.0`), commits it, tags `v1.1.0`, and moves `main` back to `1.1.1-SNAPSHOT` — no manual pom editing.
+
+2. Push the commits and the tag — the tag name must equal `v@{project.version}` or the workflow guard rejects it:
+
+    ```bash
+    git push origin main v1.1.0
+    ```
+
+3. The "Deploy Release" workflow proves the build on all three JDKs (21/25/27), verifies the tag against the pom version, and publishes the artifact from JDK 21 to `maven-releases`.
+
+For a version that does not fit the major/minor scheme (e.g. a hotfix cut from an older branch), use the manual alternative: remove `-SNAPSHOT`, commit, tag `vX.Y.Z`, push — the workflow guards apply unchanged.
 
 ### Manual publishing (without CI)
 
@@ -135,12 +183,13 @@ Credentials are never stored in `settings.xml`; they are injected through enviro
 </parent>
 ```
 
-From this point on, dependency version management, plugin configuration, test and coverage rules, and the three profiles above are in effect in your project without any extra setup. Activate each capability by invoking the matching profile:
+From this point on, dependency version management, plugin configuration, test and coverage rules, and the profiles above are in effect in your project without any extra setup. Activate each capability by invoking the matching profile:
 
 ```bash
-./mvnw -P execute-tests verify      # tests + coverage
-./mvnw -P documentation package     # sources + javadoc
-./mvnw -P format validate           # code-style check
+./mvnw -P execute-tests verify              # tests + coverage
+./mvnw -P documentation package             # sources + javadoc
+./mvnw -P format validate                   # code-style check
+./mvnw -Dminor initialize release:prepare   # cut a release (CI publishes from the tag)
 ```
 
 ---
