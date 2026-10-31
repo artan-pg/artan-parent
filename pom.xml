@@ -545,6 +545,13 @@
     </profile>
     <profile>
       <id>format</id>
+      <properties>
+        <checkstyle.failsOnError>true</checkstyle.failsOnError>
+        <checkstyle.failOnViolation>true</checkstyle.failOnViolation>
+        <checkstyle.include.test.source>true</checkstyle.include.test.source>
+        <checkstyle.include.test.resources>false</checkstyle.include.test.resources>
+        <checkstyle.excludes>${project.build.directory}</checkstyle.excludes>
+      </properties>
       <build>
         <plugins>
           <plugin>
@@ -657,12 +664,6 @@
         <jacoco.report.footer>${project.name}</jacoco.report.footer>
         <jacoco.report.formats>HTML</jacoco.report.formats>
         <jacoco.report.outputDirectory>${project.reporting.outputDirectory}/jacoco</jacoco.report.outputDirectory>
-
-        <checkstyle.failsOnError>true</checkstyle.failsOnError>
-        <checkstyle.failOnViolation>true</checkstyle.failOnViolation>
-        <checkstyle.include.test.source>true</checkstyle.include.test.source>
-        <checkstyle.include.test.resources>false</checkstyle.include.test.resources>
-        <checkstyle.excludes>${project.build.directory}</checkstyle.excludes>
 
         <jacoco.rule.bundle.complexity.ratio>0.95</jacoco.rule.bundle.complexity.ratio>
         <jacoco.rule.bundle.branch.ratio>1</jacoco.rule.bundle.branch.ratio>
