@@ -158,7 +158,7 @@ The release is prepared locally with the `major`/`minor` profiles (see *Profiles
     git push origin main v1.1.0
     ```
 
-3. The "Deploy Release" workflow proves the build on all three JDKs (21/25/27), verifies the tag against the pom version, and publishes the artifact from JDK 21 to `maven-releases`.
+3. The "Deploy Release" workflow proves the build on all three JDKs (21/25/27), verifies the tag against the pom version, normalizes the tag message (see *Release tag message* below), and publishes the artifact from JDK 21 to `maven-releases`.
 
 For a version that does not fit the major/minor scheme (e.g. the initial `1.0.0` release or a hotfix cut from an older branch), pass the versions explicitly instead of activating a profile. The plugin then also moves `main` to the next development version in a second commit — `main` must always carry a `-SNAPSHOT` version, otherwise the Deploy Snapshot guard rejects the next push:
 
@@ -170,6 +170,10 @@ git push origin main v1.0.0
 ```
 
 Here `-Dtag=vX.Y.Z` is mandatory, because the `v@{project.version}` tag format is configured inside the profiles; without a profile the default tag name would be `artan-parent-X.Y.Z`, which the `v*` trigger never fires on. The Deploy Release guard then applies unchanged. As always, do not run `release:perform` — CI publishes from the tag.
+
+### Release tag message
+
+`release:prepare` creates the tag itself and hardcodes its annotation as `[maven-release-plugin] copy for tag vX.Y.Z`; the plugin exposes no parameter to change it (unlike the two release commit messages, which are configurable in the pom). Instead of re-tagging by hand, the **Deploy Release** workflow normalizes the message automatically: once the tag/version guard has passed, it re-tags the *same commit* as `Release X.Y.Z` (e.g. `Release 1.0.0`) and force-pushes the tag before deploying. The step is idempotent — a tag whose message is already normalized is left untouched — and it cannot loop, because pushes made with `GITHUB_TOKEN` never trigger further workflow runs. No local action is required in either release flow; the pushed tag simply ends up with a clean, version-based annotation in GitHub's UI.
 
 ### Manual publishing (without CI)
 

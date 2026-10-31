@@ -48,6 +48,9 @@ jobs:
         needs: build
         runs-on: ubuntu-latest
         timeout-minutes: 15
+        # contents:write is required to force-push the normalized tag annotation
+        permissions:
+            contents: write
         steps:
             - name: Checkout (tag)
               uses: actions/checkout@v4
@@ -90,6 +93,29 @@ jobs:
                       ;;
                   esac
                   echo "OK: tag v$TAG matches version $EXPECTED"
+
+            - name: Normalize tag message to "Release <version>"
+              run: |
+                  # maven-release-plugin hardcodes "[maven-release-plugin] copy for tag <tag>"
+                  # as the annotated-tag message and exposes no parameter for it. Re-tag the
+                  # SAME commit with "Release <project.version>" (tag name == pom version is
+                  # already guaranteed by the step above). Pushing with GITHUB_TOKEN does not
+                  # re-trigger workflows, so this stays a single run and cannot loop; the
+                  # early-exit keeps the step idempotent for manual re-runs.
+                  TAG_NAME="${GITHUB_REF_NAME}"
+                  EXPECTED="Release ${TAG_NAME#v}"
+                  git fetch --force --no-tags origin "refs/tags/$TAG_NAME:refs/tags/$TAG_NAME"
+                  CURRENT=$(git tag -l --format='%(contents:subject)' "$TAG_NAME")
+                  if [ "$CURRENT" = "$EXPECTED" ]; then
+                    echo "Tag message already normalized ('$EXPECTED'); skipping re-tag."
+                    exit 0
+                  fi
+                  git config user.name  "github-actions[bot]"
+                  git config user.email "github-actions[bot]@users.noreply.github.com"
+                  TAG_COMMIT=$(git rev-parse "${TAG_NAME}^{commit}")
+                  git tag -d "$TAG_NAME"
+                  git tag -a "$TAG_NAME" -m "$EXPECTED" "$TAG_COMMIT"
+                  git push --force origin "refs/tags/$TAG_NAME"
 
             - name: Deploy to Nexus releases
               env:
