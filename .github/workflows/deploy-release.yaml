@@ -61,7 +61,7 @@ jobs:
             - name: Cache Maven local repository
               uses: actions/cache@v4
               with:
-                  path: ~/.m2/artanpg/repository
+                  path: ~/.m2/repository
                   key: maven-${{ runner.os }}-jdk21-${{ hashFiles('**/pom.xml') }}
                   restore-keys: |
                       maven-${{ runner.os }}-jdk21-
