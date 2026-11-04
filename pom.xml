@@ -3,7 +3,7 @@
 
   <groupId>ir.artanpg</groupId>
   <artifactId>artan-parent</artifactId>
-  <version>1.0.0</version>
+  <version>1.0.1-SNAPSHOT</version>
   <packaging>pom</packaging>
 
   <name>artan-parent</name>
